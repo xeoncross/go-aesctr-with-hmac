@@ -6,6 +6,8 @@ This is a work-in-progress. I am not a cryptographer, though I did my homework.
 
 This package is a simple AES-CTR encryption wrapper with SHA512 HMAC authentication. I wrote it to handle large blobs of data that would not fit into memory (or would take to much memory). Examples include files and client-to-client uploads. The assumption is that this will be used with public/private key cryptography where the AES password (and HMAC password) will be strong and random providing a strong security guarantee.
 
+I also wanted this to be [easy to](https://gist.github.com/AndiDittrich/4629e7db04819244e843) implement [in Javascript](https://stackoverflow.com/questions/36909746/aes-ctr-encrypt-in-cryptojs-and-decrypt-in-go-lang) for client-to-client communication via electron or react-native.
+
 ## Using passwords
 
 If using passwords to encrypt things I recommend you use this the "decrypto" AES-CTR + HMAC + scrypt password strengthening implementation found in [odeke-em/drive](https://github.com/sselph/drive/tree/master/src/dcrypto). It might be slower (and uses a temp file) but is worth it for the security gains. Human-passwords aren't safe to use alone.
@@ -34,6 +36,4 @@ If you need to encrypt video/audio stream, then a more complex chunked version o
 - [Golang AES-CFB encrypted TCP stream ](https://gist.github.com/raincious/96bb69414859e7ea0abfdb177ee97a1f)
 - https://github.com/SermoDigital/boxer/blob/master/boxer.go
 - [AES-256-GCM in C using OpenSSL for iPhone](https://gist.github.com/eliburke/24f06a1590d572e86a01504e1b38b27f)
-- [AES-256-GCM in Javascript](https://gist.github.com/AndiDittrich/4629e7db04819244e843)
-- [AES-CTR in Go and Javascript](https://stackoverflow.com/questions/36909746/aes-ctr-encrypt-in-cryptojs-and-decrypt-in-go-lang)
 - [AES-CTR + HMAC + RFC2898 key derivation (Go)](https://github.com/xeodou/aesf)
