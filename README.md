@@ -8,6 +8,14 @@ This package is a simple AES-CTR encryption wrapper with SHA512 HMAC authenticat
 
 I also wanted this to be [easy to](https://gist.github.com/AndiDittrich/4629e7db04819244e843) implement [in Javascript](https://stackoverflow.com/questions/36909746/aes-ctr-encrypt-in-cryptojs-and-decrypt-in-go-lang) for client-to-client communication via electron or react-native.
 
+## Benchmarks
+
+Included the example folder is a benchmark of encrypting an decrypting a 500MB stream of data. I get over 100MB/sec on my local computer using two cores.
+
+    go get github.com/Xeoncross/go-aesctr-with-hmac
+    cd $GOPATH/src/github.com/Xeoncross/go-aesctr-with-hmac/example
+    go run main.go
+
 ## Using passwords
 
 If using passwords to encrypt things I recommend you use this the "decrypto" AES-CTR + HMAC + scrypt password strengthening implementation found in [odeke-em/drive](https://github.com/sselph/drive/tree/master/src/dcrypto). It might be slower (and uses a temp file) but is worth it for the security gains. Human-passwords aren't safe to use alone.
