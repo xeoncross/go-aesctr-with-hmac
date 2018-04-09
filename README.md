@@ -1,7 +1,3 @@
-# Warning
-
-I am not a cryptographer. However, this implementation has very few moving parts all of which are written by real cryptographers and used as described.
-
 # Encryption and Decryption
 
 This package is a simple AES-CTR encryption wrapper with SHA512 HMAC authentication. I wrote it to handle large blobs of data that would not fit into memory (or would take to much memory). Examples include files and client-to-client uploads. The assumption is that this will be used with public/private key cryptography where the AES password (and HMAC password) will be strong and random providing a strong security guarantee.
@@ -27,6 +23,10 @@ If the data you are encrypting is small and easily fits into memory then you sho
 ## Encrypting a Media stream
 
 If you need to encrypt video/audio stream, then a more complex chunked version of GCM is for you. https://github.com/minio/sio (D.A.R.E. v2) provides a way to break data up into chunks that can be decrypted as they arrive and used without waiting for the rest of the stream to finish arriving.
+
+# Warning
+
+I am not a cryptographer. However, this implementation has very few moving parts all of which are written by real cryptographers and used as described.
 
 
 ## Reference
