@@ -1,6 +1,6 @@
 # Warning
 
-This is a work-in-progress. I am not a cryptographer, though I did my homework.
+I am not a cryptographer. However, this implementation has very few moving parts all of which are written by real cryptographers and used as described.
 
 # Encryption and Decryption
 
