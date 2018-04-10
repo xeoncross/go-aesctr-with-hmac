@@ -15,11 +15,10 @@ import (
 const BUFFER_SIZE int = 16 * 1024
 const IV_SIZE int = 16
 const V1 byte = 0x1
+const hmacSize = sha512.Size
 
-const (
-	// The size of the HMAC sum.
-	hmacSize = sha512.Size
-)
+// ErrInvalidHMAC for authentication failure
+var ErrInvalidHMAC = errors.New("Invalid HMAC")
 
 // Encrypt the stream using the given AES-CTR and SHA512-HMAC key
 func Encrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
@@ -143,7 +142,7 @@ func Decrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
 	}
 
 	if !hmac.Equal(mac, h.Sum(nil)) {
-		return errors.New("Invalid HMAC")
+		return ErrInvalidHMAC
 	}
 
 	return nil
