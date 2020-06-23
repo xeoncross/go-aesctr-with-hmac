@@ -29,20 +29,26 @@ func Encrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
 		return err
 	}
 
-	aes, err := aes.NewCipher(keyAes)
+	AES, err := aes.NewCipher(keyAes)
 	if err != nil {
 		return err
 	}
 
-	ctr := cipher.NewCTR(aes, iv)
-	hmac := hmac.New(sha512.New, keyHmac) // https://golang.org/pkg/crypto/hmac/#New
+	ctr := cipher.NewCTR(AES, iv)
+	HMAC := hmac.New(sha512.New, keyHmac) // https://golang.org/pkg/crypto/hmac/#New
 
 	// Version
-	out.Write([]byte{V1})
+	_, err = out.Write([]byte{V1})
+	if err != nil {
+		return
+	}
 
-	w := io.MultiWriter(out, hmac)
+	w := io.MultiWriter(out, HMAC)
 
-	w.Write(iv)
+	_, err = w.Write(iv)
+	if err != nil {
+		return
+	}
 
 	buf := make([]byte, BUFFER_SIZE)
 	for {
@@ -54,7 +60,10 @@ func Encrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
 		if n != 0 {
 			outBuf := make([]byte, n)
 			ctr.XORKeyStream(outBuf, buf[:n])
-			w.Write(outBuf)
+			_, err = w.Write(outBuf)
+			if err != nil {
+				return err
+			}
 		}
 
 		if err == io.EOF {
@@ -62,13 +71,13 @@ func Encrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
 		}
 	}
 
-	out.Write(hmac.Sum(nil))
+	_, err = out.Write(HMAC.Sum(nil))
 
-	return nil
+	return err
 }
 
 // Decrypt the stream and verify HMAC using the given AES-CTR and SHA512-HMAC key
-// Do not trust the out io.Writer contents until the funtion returns the result
+// Do not trust the out io.Writer contents until the function returns the result
 // of validating the ending HMAC hash.
 func Decrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
 
@@ -85,12 +94,12 @@ func Decrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
 		return
 	}
 
-	aes, err := aes.NewCipher(keyAes)
+	AES, err := aes.NewCipher(keyAes)
 	if err != nil {
 		return
 	}
 
-	ctr := cipher.NewCTR(aes, iv)
+	ctr := cipher.NewCTR(AES, iv)
 	h := hmac.New(sha512.New, keyHmac)
 	h.Write(iv)
 	mac := make([]byte, hmacSize)
@@ -128,16 +137,18 @@ func Decrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
 		// We always leave at least hmacSize bytes left in the buffer
 		// That way, our next Peek() might be EOF, but we will still have enough
 		outBuf := make([]byte, int64(limit))
-		buf.Read(b[:limit])
+		_, err = buf.Read(b[:limit])
+		if err != nil {
+			return
+		}
 		ctr.XORKeyStream(outBuf, b[:limit])
-		w.Write(outBuf)
+		_, err = w.Write(outBuf)
+		if err != nil {
+			return
+		}
 
 		if err == io.EOF {
 			break
-		}
-
-		if err != nil {
-			return
 		}
 	}
 
