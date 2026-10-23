@@ -61,11 +61,22 @@ func TestHTTPClient(t *testing.T) {
 	resp := httptest.NewRecorder()
 	encryptHandler(resp, req)
 
-	result := resp.Body.String()
+	// Encrypt uses a random IV, so two encryptions never produce the same
+	// bytes. Compare the length and check that the response decrypts back
+	// to the original message instead.
+	if resp.Body.Len() != out.Len() {
+		t.Fatalf("want %d encrypted bytes, got %d", out.Len(), resp.Body.Len())
+	}
 
-	if result != out.String() {
-		t.Logf("\nWant: %v\nGot: %v", out.Bytes(), resp.Body.Bytes())
-		t.Fail()
+	plain := &bytes.Buffer{}
+
+	err = Decrypt(resp.Body, plain, aesKey, hmacKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if plain.String() != secretMessage {
+		t.Fatalf("want %q, got %q", secretMessage, plain.String())
 	}
 
 }

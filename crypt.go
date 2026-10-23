@@ -12,16 +12,56 @@ import (
 	"io"
 )
 
+// BUFFER_SIZE is the default read buffer size used by Encrypt and Decrypt.
+// It only controls how much input is processed per step; the encrypted
+// output is the same for every buffer size because AES-CTR is a stream mode.
 const BUFFER_SIZE int = 16 * 1024
 const IV_SIZE int = 16
 const V1 byte = 0x1
 const hmacSize = sha512.Size
 
+// MinBufferSize is the smallest buffer size accepted by the WithBufferSize
+// functions. Decrypt always keeps hmacSize bytes in the buffer to find the
+// trailing HMAC, so the buffer must hold at least one more byte than that.
+const MinBufferSize int = hmacSize + 1
+
+// MaxBufferSize is the largest accepted buffer size. It keeps the per-call
+// memory use finite when the size comes from configuration or user input.
+const MaxBufferSize int = 64 * 1024 * 1024
+
 // ErrInvalidHMAC for authentication failure
 var ErrInvalidHMAC = errors.New("Invalid HMAC")
 
+// ErrInvalidBufferSize is returned when a buffer size is outside
+// [MinBufferSize, MaxBufferSize].
+var ErrInvalidBufferSize = errors.New("Invalid buffer size")
+
+// validateBufferSize returns ErrInvalidBufferSize when bufferSize is outside
+// [MinBufferSize, MaxBufferSize].
+func validateBufferSize(bufferSize int) error {
+	if bufferSize < MinBufferSize || bufferSize > MaxBufferSize {
+		return ErrInvalidBufferSize
+	}
+
+	return nil
+}
+
 // Encrypt the stream using the given AES-CTR and SHA512-HMAC key
+// with the default BUFFER_SIZE.
 func Encrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
+	return EncryptWithBufferSize(in, out, keyAes, keyHmac, BUFFER_SIZE)
+}
+
+// EncryptWithBufferSize encrypts the stream like Encrypt, reading the input
+// bufferSize bytes at a time. The output is byte-for-byte the same as Encrypt
+// for the same key and IV; only memory use and call count per step change.
+// It returns ErrInvalidBufferSize before writing anything when bufferSize is
+// outside [MinBufferSize, MaxBufferSize], and any read, write or key error.
+func EncryptWithBufferSize(in io.Reader, out io.Writer, keyAes, keyHmac []byte, bufferSize int) (err error) {
+	err = validateBufferSize(bufferSize)
+	if err != nil {
+		return err
+	}
 
 	iv := make([]byte, IV_SIZE)
 	_, err = rand.Read(iv)
@@ -29,6 +69,13 @@ func Encrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
 		return err
 	}
 
+	return encrypt(in, out, keyAes, keyHmac, iv, bufferSize)
+}
+
+// encrypt writes [V1][iv][AES-CTR(in)][HMAC-SHA512(iv || ciphertext)] to out.
+// It is separate from EncryptWithBufferSize so tests can pin the IV and
+// compare outputs byte-for-byte; bufferSize must already be validated.
+func encrypt(in io.Reader, out io.Writer, keyAes, keyHmac, iv []byte, bufferSize int) (err error) {
 	AES, err := aes.NewCipher(keyAes)
 	if err != nil {
 		return err
@@ -50,7 +97,7 @@ func Encrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
 		return
 	}
 
-	buf := make([]byte, BUFFER_SIZE)
+	buf := make([]byte, bufferSize)
 	for {
 		n, err := in.Read(buf)
 		if err != nil && err != io.EOF {
@@ -77,9 +124,28 @@ func Encrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
 }
 
 // Decrypt the stream and verify HMAC using the given AES-CTR and SHA512-HMAC key
+// with the default BUFFER_SIZE.
 // Do not trust the out io.Writer contents until the function returns the result
 // of validating the ending HMAC hash.
 func Decrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
+	return DecryptWithBufferSize(in, out, keyAes, keyHmac, BUFFER_SIZE)
+}
+
+// DecryptWithBufferSize decrypts and verifies the stream like Decrypt,
+// buffering bufferSize bytes of input at a time. Data encrypted with any
+// buffer size (including the default) decrypts with any valid buffer size.
+// It returns ErrInvalidBufferSize before reading anything when bufferSize is
+// outside [MinBufferSize, MaxBufferSize], ErrInvalidHMAC when authentication
+// fails, and any read, write or key error.
+// Do not trust the out io.Writer contents until the function returns the result
+// of validating the ending HMAC hash.
+func DecryptWithBufferSize(in io.Reader, out io.Writer, keyAes, keyHmac []byte, bufferSize int) (err error) {
+	// Validate first so an invalid size never consumes input; a size of
+	// hmacSize or less would make the limit below zero or negative.
+	err = validateBufferSize(bufferSize)
+	if err != nil {
+		return err
+	}
 
 	// Read version (up to 0-255)
 	var version int8
@@ -106,11 +172,11 @@ func Decrypt(in io.Reader, out io.Writer, keyAes, keyHmac []byte) (err error) {
 
 	w := out
 
-	buf := bufio.NewReaderSize(in, BUFFER_SIZE)
+	buf := bufio.NewReaderSize(in, bufferSize)
 	var limit int
 	var b []byte
 	for {
-		b, err = buf.Peek(BUFFER_SIZE)
+		b, err = buf.Peek(bufferSize)
 		if err != nil && err != io.EOF {
 			return
 		}
